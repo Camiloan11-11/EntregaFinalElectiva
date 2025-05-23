@@ -160,7 +160,7 @@ app.add_middleware(
 if FRONTEND_DIR.is_dir(): # Usamos .is_dir() para verificar que la carpeta existe
     app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
     
-    @app.get("/app")
+    @app.get("/")
     async def serve_frontend():
         """Servir la aplicación frontend"""
         # Usamos FRONTEND_DIR para especificar la ruta exacta del index.html
