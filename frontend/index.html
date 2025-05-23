@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TarifaPredict - Predicción de Tarifas Municipales</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .status-bar {
+            background: #f8f9fa;
+            padding: 15px 30px;
+            border-bottom: 1px solid #e9ecef;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 5px 0;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #dc3545;
+            animation: pulse 2s infinite;
+        }
+
+        .status-dot.online {
+            background: #28a745;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .main-content {
+            padding: 30px;
+        }
+
+        .form-section {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 30px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            border: 1px solid #e9ecef;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 20px;
+            align-items: end;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-group label {
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #495057;
+        }
+
+        .form-group input, 
+        .form-group select {
+            padding: 12px 16px;
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            background: white;
+        }
+
+        .form-group input:focus, 
+        .form-group select:focus {
+            outline: none;
+            border-color: #4facfe;
+            box-shadow: 0 0 0 3px rgba(79, 172, 254, 0.1);
+        }
+
+        .search-container {
+            position: relative;
+        }
+
+        .search-suggestions {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 2px solid #e9ecef;
+            border-top: none;
+            border-radius: 0 0 10px 10px;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 1000;
+            display: none;
+        }
+
+        .suggestion-item {
+            padding: 12px 16px;
+            cursor: pointer;
+            border-bottom: 1px solid #f8f9fa;
+            transition: background 0.2s ease;
+        }
+
+        .suggestion-item:hover {
+            background: #f8f9fa;
+        }
+
+        .suggestion-item:last-child {
+            border-bottom: none;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .results-section {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            border: 1px solid #e9ecef;
+            display: none;
+        }
+
+        .results-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #f8f9fa;
+        }
+
+        .results-title {
+            font-size: 1.5rem;
+            color: #495057;
+            font-weight: 600;
+        }
+
+        .results-info {
+            font-size: 0.9rem;
+            color: #6c757d;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 400px;
+            margin: 20px 0;
+        }
+
+        .predictions-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        .predictions-table th,
+        .predictions-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .predictions-table th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #495057;
+        }
+
+        .predictions-table tr:hover {
+            background: #f8f9fa;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 40px;
+        }
+
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+            border: 1px solid #f5c6cb;
+            display: none;
+        }
+
+        .success {
+            background: #d4edda;
+            color: #155724;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+            border: 1px solid #c3e6cb;
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .status-bar {
+                flex-direction: column;
+                text-align: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏛️ TarifaPredict</h1>
+            <p>Sistema de Predicción de Tarifas Municipales con Prophet</p>
+        </div>
+
+        <div class="status-bar">
+            <div class="status-item">
+                <div class="status-dot" id="api-status"></div>
+                <span id="api-status-text">Verificando conexión...</span>
+            </div>
+            <div class="status-item">
+                <span>📊 Modelos cargados: <strong id="models-count">0</strong></span>
+            </div>
+            <div class="status-item">
+                <span>🏘️ Municipios disponibles: <strong id="municipios-count">0</strong></span>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="form-section">
+                <h2>📈 Realizar Predicción</h2>
+                <form id="prediction-form">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="municipio">Municipio</label>
+                            <div class="search-container">
+                                <input type="text" id="municipio" name="municipio" placeholder="Buscar municipio..." autocomplete="off" required>
+                                <div class="search-suggestions" id="suggestions"></div>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="months">Meses a predecir</label>
+                            <select id="months" name="months">
+                                <option value="3">3 meses</option>
+                                <option value="6">6 meses</option>
+                                <option value="12" selected>12 meses</option>
+                                <option value="18">18 meses</option>
+                                <option value="24">24 meses</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <button type="submit" class="btn" id="predict-btn">
+                                🔮 Predecir
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            <div class="error" id="error-message"></div>
+            <div class="success" id="success-message"></div>
+
+            <div class="loading" id="loading">
+                <div class="loading-spinner"></div>
+                <p>Generando predicciones...</p>
+            </div>
+
+            <div class="results-section" id="results">
+                <div class="results-header">
+                    <div class="results-title" id="results-title">Predicciones</div>
+                    <div class="results-info" id="results-info"></div>
+                </div>
+                
+                <div class="chart-container">
+                    <canvas id="predictions-chart"></canvas>
+                </div>
+
+                <table class="predictions-table" id="predictions-table">
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Predicción</th>
+                            <th>Límite Inferior</th>
+                            <th>Límite Superior</th>
+                            <th>Rango</th>
+                        </tr>
+                    </thead>
+                    <tbody id="predictions-tbody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://127.0.0.1:3000';
+        let municipiosList = [];
+        let predictionsChart = null;
+
+        // Verificar estado de la API al cargar
+        document.addEventListener('DOMContentLoaded', function() {
+            checkApiStatus();
+            loadMunicipios();
+            setupEventListeners();
+        });
+
+        async function checkApiStatus() {
+            try {
+                const response = await fetch(`${API_URL}/health`);
+                const data = await response.json();
+                
+                const statusDot = document.getElementById('api-status');
+                const statusText = document.getElementById('api-status-text');
+                const modelsCount = document.getElementById('models-count');
+                
+                if (response.ok && data.status === 'healthy') {
+                    statusDot.classList.add('online');
+                    statusText.textContent = 'API conectada';
+                    modelsCount.textContent = data.models_loaded;
+                } else {
+                    statusText.textContent = 'API sin modelos';
+                }
+            } catch (error) {
+                document.getElementById('api-status-text').textContent = 'API desconectada';
+                console.error('Error checking API status:', error);
+            }
+        }
+
+        async function loadMunicipios() {
+            try {
+                const response = await fetch(`${API_URL}/municipios`);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    municipiosList = data.municipios;
+                    document.getElementById('municipios-count').textContent = data.total;
+                }
+            } catch (error) {
+                console.error('Error loading municipios:', error);
+            }
+        }
+
+        function setupEventListeners() {
+            const municipioInput = document.getElementById('municipio');
+            const suggestionsDiv = document.getElementById('suggestions');
+            const form = document.getElementById('prediction-form');
+
+            // Búsqueda de municipios
+            municipioInput.addEventListener('input', function() {
+                const query = this.value.toLowerCase();
+                
+                if (query.length < 2) {
+                    suggestionsDiv.style.display = 'none';
+                    return;
+                }
+
+                const matches = municipiosList.filter(municipio => 
+                    municipio.toLowerCase().includes(query)
+                ).slice(0, 10);
+
+                if (matches.length > 0) {
+                    suggestionsDiv.innerHTML = matches.map(municipio => 
+                        `<div class="suggestion-item" data-municipio="${municipio}">${municipio}</div>`
+                    ).join('');
+                    suggestionsDiv.style.display = 'block';
+                } else {
+                    suggestionsDiv.style.display = 'none';
+                }
+            });
+
+            // Seleccionar sugerencia
+            suggestionsDiv.addEventListener('click', function(e) {
+                if (e.target.classList.contains('suggestion-item')) {
+                    municipioInput.value = e.target.dataset.municipio;
+                    suggestionsDiv.style.display = 'none';
+                }
+            });
+
+            // Ocultar sugerencias al hacer clic fuera
+            document.addEventListener('click', function(e) {
+                if (!e.target.closest('.search-container')) {
+                    suggestionsDiv.style.display = 'none';
+                }
+            });
+
+            // Envío del formulario
+            form.addEventListener('submit', handlePrediction);
+        }
+
+        async function handlePrediction(e) {
+            e.preventDefault();
+            
+            const municipio = document.getElementById('municipio').value;
+            const months = parseInt(document.getElementById('months').value);
+            
+            if (!municipio) {
+                showError('Por favor selecciona un municipio');
+                return;
+            }
+
+            showLoading(true);
+            hideMessages();
+
+            try {
+                const response = await fetch(`${API_URL}/predict`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        municipio: municipio,
+                        months_ahead: months
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    displayPredictions(data);
+                    showSuccess(`Predicciones generadas exitosamente para ${data.municipio}`);
+                } else {
+                    showError(data.detail || 'Error al generar predicciones');
+                }
+            } catch (error) {
+                showError('Error de conexión con la API');
+                console.error('Error:', error);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        function displayPredictions(data) {
+            const resultsSection = document.getElementById('results');
+            const resultsTitle = document.getElementById('results-title');
+            const resultsInfo = document.getElementById('results-info');
+            const tbody = document.getElementById('predictions-tbody');
+
+            // Actualizar título e información
+            resultsTitle.textContent = `Predicciones para ${data.municipio}`;
+            resultsInfo.textContent = `${data.total_meses} meses • Generado: ${new Date(data.fecha_consulta).toLocaleString()}`;
+
+            // Limpiar tabla anterior
+            tbody.innerHTML = '';
+
+            // Llenar tabla
+            data.predicciones.forEach(pred => {
+                const row = document.createElement('tr');
+                const rango = (pred.limite_superior - pred.limite_inferior).toFixed(2);
+                
+                row.innerHTML = `
+                    <td>${new Date(pred.fecha).toLocaleDateString()}</td>
+                    <td>$${pred.prediccion.toLocaleString()}</td>
+                    <td>$${pred.limite_inferior.toLocaleString()}</td>
+                    <td>$${pred.limite_superior.toLocaleString()}</td>
+                    <td>±$${rango}</td>
+                `;
+                tbody.appendChild(row);
+            });
+
+            // Crear gráfico
+            createChart(data);
+
+            // Mostrar resultados
+            resultsSection.style.display = 'block';
+            resultsSection.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function createChart(data) {
+            const ctx = document.getElementById('predictions-chart').getContext('2d');
+            
+            // Destruir gráfico anterior si existe
+            if (predictionsChart) {
+                predictionsChart.destroy();
+            }
+
+            const labels = data.predicciones.map(pred => 
+                new Date(pred.fecha).toLocaleDateString('es-ES', { month: 'short', year: '2-digit' })
+            );
+
+            predictionsChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Predicción',
+                            data: data.predicciones.map(pred => pred.prediccion),
+                            borderColor: '#667eea',
+                            backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                            borderWidth: 3,
+                            fill: false,
+                            tension: 0.4
+                        },
+                        {
+                            label: 'Límite Superior',
+                            data: data.predicciones.map(pred => pred.limite_superior),
+                            borderColor: '#28a745',
+                            backgroundColor: 'rgba(40, 167, 69, 0.1)',
+                            borderWidth: 2,
+                            borderDash: [5, 5],
+                            fill: false
+                        },
+                        {
+                            label: 'Límite Inferior',
+                            data: data.predicciones.map(pred => pred.limite_inferior),
+                            borderColor: '#dc3545',
+                            backgroundColor: 'rgba(220, 53, 69, 0.1)',
+                            borderWidth: 2,
+                            borderDash: [5, 5],
+                            fill: false
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: false,
+                            ticks: {
+                                callback: function(value) {
+                                    return '$' + value.toLocaleString();
+                                }
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top'
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return context.dataset.label + ': $' + context.parsed.y.toLocaleString();
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function showLoading(show) {
+            const loading = document.getElementById('loading');
+            const predictBtn = document.getElementById('predict-btn');
+            
+            loading.style.display = show ? 'block' : 'none';
+            predictBtn.disabled = show;
+        }
+
+        function showError(message) {
+            const errorDiv = document.getElementById('error-message');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+        }
+
+        function showSuccess(message) {
+            const successDiv = document.getElementById('success-message');
+            successDiv.textContent = message;
+            successDiv.style.display = 'block';
+        }
+
+        function hideMessages() {
+            document.getElementById('error-message').style.display = 'none';
+            document.getElementById('success-message').style.display = 'none';
+        }
+    </script>
+</body>
+</html>
